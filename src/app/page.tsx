@@ -1,65 +1,158 @@
-import Image from "next/image";
+import StatusCard from "@/components/dashboard/StatusCard";
+import WorkerGrid from "@/components/dashboard/WorkerGrid";
+import ActivityFeed from "@/components/dashboard/ActivityFeed";
+import MergeQueue from "@/components/dashboard/MergeQueue";
+import RigPanel from "@/components/dashboard/RigPanel";
 
 export default function Home() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <div className="p-6 space-y-6">
+      {/* Page Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1
+            className="text-2xl font-bold tracking-wider mb-1"
+            style={{
+              fontFamily: 'Orbitron, monospace',
+              color: '#ff6b35',
+              textShadow: '0 0 20px rgba(255,107,53,0.3)',
+            }}
+          >
+            COMMAND CENTER
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p
+            className="text-sm text-[#60636c]"
+            style={{ fontFamily: 'Share Tech Mono, monospace' }}
+          >
+            System Status: All Workers Operational • Last Sync: 12s ago
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+
+        {/* Quick Actions */}
+        <div className="flex items-center gap-3">
+          <button
+            className="px-4 py-2 text-sm font-semibold uppercase tracking-wider rounded transition-all duration-200"
+            style={{
+              fontFamily: 'Orbitron, monospace',
+              background: 'linear-gradient(135deg, rgba(255,107,53,0.2) 0%, rgba(255,107,53,0.1) 100%)',
+              border: '1px solid rgba(255,107,53,0.4)',
+              color: '#ff6b35',
+              boxShadow: '0 0 20px rgba(255,107,53,0.2)',
+            }}
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            🚀 Launch Convoy
+          </button>
+          <button
+            className="px-4 py-2 text-sm font-semibold uppercase tracking-wider bg-[#1a1b1d] border border-[#2d2e32] text-[#9fa2a9] rounded hover:border-[#3f4147] transition-colors"
+            style={{ fontFamily: 'Orbitron, monospace' }}
           >
-            Documentation
-          </a>
+            + New Task
+          </button>
         </div>
-      </main>
+      </div>
+
+      {/* Status Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatusCard
+          title="Active Workers"
+          value="15"
+          subtitle="8 working • 7 idle"
+          icon="👷"
+          status="success"
+          trend="up"
+          trendValue="+3 from yesterday"
+        />
+        <StatusCard
+          title="Open Beads"
+          value="25"
+          subtitle="12 in progress"
+          icon="📿"
+          status="neutral"
+          trend="down"
+          trendValue="-8 resolved today"
+        />
+        <StatusCard
+          title="Merge Queue"
+          value="4"
+          subtitle="1 processing • 3 pending"
+          icon="🏭"
+          status="warning"
+        />
+        <StatusCard
+          title="System Health"
+          value="94%"
+          subtitle="All rigs operational"
+          icon="⚡"
+          status="success"
+        />
+      </div>
+
+      {/* Main Grid */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        {/* Left Column - 2/3 width */}
+        <div className="xl:col-span-2 space-y-6">
+          {/* Worker Grid */}
+          <div
+            className="rounded-lg border border-[#2d2e32] p-4"
+            style={{
+              background: 'linear-gradient(180deg, rgba(26,27,29,0.95) 0%, rgba(13,14,16,0.98) 100%)',
+            }}
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-xl">👷</span>
+              <h2
+                className="text-sm font-semibold text-[#9fa2a9] uppercase tracking-widest"
+                style={{ fontFamily: 'Orbitron, monospace' }}
+              >
+                Worker Fleet
+              </h2>
+            </div>
+            <WorkerGrid />
+          </div>
+
+          {/* Merge Queue */}
+          <MergeQueue />
+        </div>
+
+        {/* Right Column - 1/3 width */}
+        <div className="space-y-6">
+          {/* Activity Feed */}
+          <ActivityFeed />
+
+          {/* Rig Panel */}
+          <RigPanel />
+        </div>
+      </div>
+
+      {/* Footer Stats Bar */}
+      <div
+        className="fixed bottom-0 left-64 right-0 h-8 border-t border-[#2d2e32] flex items-center justify-between px-6"
+        style={{
+          background: 'linear-gradient(180deg, rgba(26,27,29,0.98) 0%, rgba(13,14,16,1) 100%)',
+          backdropFilter: 'blur(10px)',
+        }}
+      >
+        <div className="flex items-center gap-6 text-xs" style={{ fontFamily: 'Share Tech Mono, monospace' }}>
+          <span className="text-[#60636c]">
+            API: <span className="text-green-400">●</span> Connected
+          </span>
+          <span className="text-[#60636c]">
+            Beads DB: <span className="text-green-400">●</span> Synced
+          </span>
+          <span className="text-[#60636c]">
+            tmux: <span className="text-green-400">●</span> 15 sessions
+          </span>
+        </div>
+        <div className="flex items-center gap-4 text-xs" style={{ fontFamily: 'Share Tech Mono, monospace' }}>
+          <span className="text-[#60636c]">
+            Today: <span className="text-[#ff6b35]">47 tasks</span> completed
+          </span>
+          <span className="text-[#4c4e56]">│</span>
+          <span className="text-[#60636c]">
+            Tokens: <span className="text-[#ff6b35]">2.4M</span> used
+          </span>
+        </div>
+      </div>
     </div>
   );
 }
