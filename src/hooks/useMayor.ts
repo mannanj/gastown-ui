@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 export interface MayorMessage {
   id: string;
   timestamp: Date;
   content: string;
-  type: "system" | "output" | "input";
+  type: "system" | "output" | "error" | "input";
 }
 
 export interface Rig {
@@ -37,26 +37,107 @@ export interface MayorState {
   completed: string[];
 }
 
-// Mock data - replace with real mayor attach later
-const mockRigs: Rig[] = [
-  { name: "aurum", polecats: 4, status: "Active" },
-  { name: "domain_hunt", polecats: 1, status: "Active" },
-  { name: "calendar", polecats: 0, status: "Idle" },
-];
+// Parse mayor output to extract structured data
+function parseRigsFromOutput(lines: string[]): Rig[] {
+  const rigs: Rig[] = [];
+  let inRigsSection = false;
 
-const mockAgents: Agent[] = [
-  { name: "aurum-witness", activity: "3m ago", status: "ok" },
-  { name: "aurum-refinery", activity: "19m ago", status: "nudged" },
-  { name: "domain_hunt-witness", activity: "13m ago", status: "ok" },
-  { name: "domain_hunt-refinery", activity: "12m ago", status: "ok" },
-];
+  for (const line of lines) {
+    if (line.includes("Rigs") && !line.includes("Rigs:")) {
+      inRigsSection = true;
+      continue;
+    }
+    if (inRigsSection && line.includes("Infrastructure Health")) {
+      break;
+    }
+    if (inRigsSection) {
+      // Parse table rows like: | aurum | 4 | Active |
+      const match = line.match(/\|\s*(\w+)\s*\|\s*(\d+)\s*\|\s*(Active|Idle)\s*\|/);
+      if (match) {
+        rigs.push({
+          name: match[1],
+          polecats: parseInt(match[2], 10),
+          status: match[3] as "Active" | "Idle",
+        });
+      }
+    }
+  }
+  return rigs;
+}
 
-const mockActiveWork: ActiveWork[] = [
-  { rig: "aurum", polecat: "rictus", task: "au-mxhf E2E Test", activity: "0m ago" },
-  { rig: "domain_hunt", polecat: "furiosa", task: "dh-7t6 Domain Script", activity: "1m ago" },
-];
+function parseAgentsFromOutput(lines: string[]): Agent[] {
+  const agents: Agent[] = [];
+  let inAgentsSection = false;
 
-const mockCompleted = ["au-ww71 - Bug fix (NextJS error + size preservation)"];
+  for (const line of lines) {
+    if (line.includes("Infrastructure Health")) {
+      inAgentsSection = true;
+      continue;
+    }
+    if (inAgentsSection && line.includes("Active Work")) {
+      break;
+    }
+    if (inAgentsSection) {
+      // Parse table rows like: | aurum-witness | 3m ago | ✅ |
+      const match = line.match(/\|\s*([\w-]+)\s*\|\s*(\d+m ago)\s*\|\s*([✅✓])\s*(\(nudged\))?\s*\|/);
+      if (match) {
+        agents.push({
+          name: match[1],
+          activity: match[2],
+          status: match[4] ? "nudged" : "ok",
+        });
+      }
+    }
+  }
+  return agents;
+}
+
+function parseActiveWorkFromOutput(lines: string[]): ActiveWork[] {
+  const work: ActiveWork[] = [];
+  let inWorkSection = false;
+
+  for (const line of lines) {
+    if (line.includes("Active Work")) {
+      inWorkSection = true;
+      continue;
+    }
+    if (inWorkSection && line.includes("Completed")) {
+      break;
+    }
+    if (inWorkSection) {
+      // Parse table rows
+      const match = line.match(/\|\s*(\w+)\s*\|\s*(\w+)\s*\|\s*(.+?)\s*\|\s*(\d+m ago)\s*[✅✓]?\s*\|/);
+      if (match) {
+        work.push({
+          rig: match[1],
+          polecat: match[2],
+          task: match[3].trim(),
+          activity: match[4],
+        });
+      }
+    }
+  }
+  return work;
+}
+
+function parseCompletedFromOutput(lines: string[]): string[] {
+  const completed: string[] = [];
+  let inCompletedSection = false;
+
+  for (const line of lines) {
+    if (line.includes("Completed This Session")) {
+      inCompletedSection = true;
+      continue;
+    }
+    if (inCompletedSection) {
+      const match = line.match(/[✅✓-]\s*(.+)/);
+      if (match) {
+        completed.push(match[1].trim());
+      }
+    }
+  }
+  return completed;
+}
 
 export function useMayor() {
   const [state, setState] = useState<MayorState>({
@@ -68,77 +149,77 @@ export function useMayor() {
     completed: [],
   });
 
+  const outputBuffer = useRef<string[]>([]);
+  const eventSourceRef = useRef<EventSource | null>(null);
+
   useEffect(() => {
-    // Simulate connection
-    const connectTimeout = setTimeout(() => {
-      setState((prev) => ({
-        ...prev,
-        connected: true,
-        rigs: mockRigs,
-        agents: mockAgents,
-        activeWork: mockActiveWork,
-        completed: mockCompleted,
-        messages: [
-          {
-            id: "1",
-            timestamp: new Date(),
-            content: "Mayor attached. Streaming status...",
-            type: "system",
-          },
-          {
-            id: "2",
-            timestamp: new Date(),
-            content: "Status Summary",
-            type: "output",
-          },
-          {
-            id: "3",
-            timestamp: new Date(),
-            content: "Rigs: aurum (4 polecats, Active), domain_hunt (1 polecat, Active), calendar (0 polecats, Idle)",
-            type: "output",
-          },
-        ],
-      }));
-    }, 500);
+    const eventSource = new EventSource("/api/mayor");
+    eventSourceRef.current = eventSource;
 
-    // Simulate periodic updates
-    const updateInterval = setInterval(() => {
-      const updates = [
-        "aurum-witness checking task progress...",
-        "domain_hunt-refinery processing batch...",
-        "Task au-mxhf completed step 3/5",
-        "New bead assigned to rictus",
-        "calendar rig idle, awaiting tasks",
-      ];
-      const randomUpdate = updates[Math.floor(Math.random() * updates.length)];
+    eventSource.onopen = () => {
+      setState((prev) => ({ ...prev, connected: true }));
+    };
 
-      setState((prev) => ({
-        ...prev,
-        messages: [
-          ...prev.messages,
-          {
-            id: Date.now().toString(),
-            timestamp: new Date(),
-            content: randomUpdate,
-            type: "output",
-          },
-        ],
-      }));
-    }, 5000);
+    eventSource.onmessage = (event) => {
+      try {
+        const { type, data, timestamp } = JSON.parse(event.data);
+
+        // Add to message list
+        const newMessage: MayorMessage = {
+          id: `${timestamp}-${Math.random()}`,
+          timestamp: new Date(timestamp),
+          content: data,
+          type: type as MayorMessage["type"],
+        };
+
+        setState((prev) => ({
+          ...prev,
+          messages: [...prev.messages, newMessage],
+        }));
+
+        // Buffer output for parsing
+        if (type === "output") {
+          outputBuffer.current.push(data);
+
+          // Try to parse structured data from buffered output
+          const rigs = parseRigsFromOutput(outputBuffer.current);
+          const agents = parseAgentsFromOutput(outputBuffer.current);
+          const activeWork = parseActiveWorkFromOutput(outputBuffer.current);
+          const completed = parseCompletedFromOutput(outputBuffer.current);
+
+          if (rigs.length > 0 || agents.length > 0 || activeWork.length > 0 || completed.length > 0) {
+            setState((prev) => ({
+              ...prev,
+              rigs: rigs.length > 0 ? rigs : prev.rigs,
+              agents: agents.length > 0 ? agents : prev.agents,
+              activeWork: activeWork.length > 0 ? activeWork : prev.activeWork,
+              completed: completed.length > 0 ? completed : prev.completed,
+            }));
+          }
+        }
+      } catch (err) {
+        console.error("Failed to parse SSE message:", err);
+      }
+    };
+
+    eventSource.onerror = () => {
+      setState((prev) => ({ ...prev, connected: false }));
+    };
 
     return () => {
-      clearTimeout(connectTimeout);
-      clearInterval(updateInterval);
+      eventSource.close();
+      eventSourceRef.current = null;
     };
   }, []);
 
-  const sendCommand = useCallback((command: string) => {
+  const sendCommand = useCallback(async (command: string) => {
+    // Add command to messages immediately
     setState((prev) => ({
       ...prev,
       messages: [
         ...prev.messages,
         {
-          id: Date.now().toString(),
+          id: `input-${Date.now()}`,
           timestamp: new Date(),
           content: `> ${command}`,
           type: "input",
@@ -146,21 +227,42 @@ export function useMayor() {
       ],
     }));
 
-    // Simulate response
-    setTimeout(() => {
+    try {
+      const response = await fetch("/api/mayor", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ command }),
+      });
+
+      if (!response.ok) {
+        const { error } = await response.json();
+        setState((prev) => ({
+          ...prev,
+          messages: [
+            ...prev.messages,
+            {
+              id: `error-${Date.now()}`,
+              timestamp: new Date(),
+              content: error || "Failed to send command",
+              type: "error",
+            },
+          ],
+        }));
+      }
+    } catch (err) {
       setState((prev) => ({
         ...prev,
         messages: [
           ...prev.messages,
           {
-            id: (Date.now() + 1).toString(),
+            id: `error-${Date.now()}`,
             timestamp: new Date(),
-            content: `Command received: ${command}`,
-            type: "output",
+            content: "Failed to send command",
+            type: "error",
           },
         ],
       }));
-    }, 200);
+    }
   }, []);
 
   return { state, sendCommand };

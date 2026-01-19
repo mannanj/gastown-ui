@@ -47,6 +47,8 @@ export function MayorChat({ messages, connected, onSendCommand }: MayorChatProps
                   ? "text-muted-foreground"
                   : msg.type === "system"
                   ? "text-muted-foreground italic"
+                  : msg.type === "error"
+                  ? "text-destructive"
                   : ""
               }
             >
